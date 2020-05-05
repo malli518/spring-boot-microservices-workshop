@@ -12,31 +12,41 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.rythmos.moviecatalogservice.modle.CatalogItem;
 import com.rythmos.moviecatalogservice.modle.Movie;
 import com.rythmos.moviecatalogservice.modle.Rating;
 import com.rythmos.moviecatalogservice.modle.UserRating;
+import com.rythmos.moviecatalogservice.service.MovieInfo;
+import com.rythmos.moviecatalogservice.service.UserRatingInfo;
 
 @RestController
 @RequestMapping("/catalog")
 public class MovieCatalogController {
 	
-	@Autowired
-	private RestTemplate restTemplate;
+	
 	
 	@Autowired
 	private WebClient.Builder webClientBuilder;
+	
+	@Autowired
+	private MovieInfo movieInfo;
+	
+	@Autowired
+	private UserRatingInfo userRatingInfo;
 
 	@RequestMapping("/{userId}")
+	//@HystrixCommand(fallbackMethod = "getFallbackCatalog")
 	public List<CatalogItem> getCatalogsInfo(@PathVariable("userId") String userId) {
 		
 		/*List<Rating> ratings=Arrays.asList(
 				new Rating("101",4),
 				new Rating("102",5)); 
 				*/
-		UserRating userRating=restTemplate.getForObject("http://movie-rating-service/ratings/users/"+userId, UserRating.class);
-		return userRating.getRatings().stream().map(rating -> {
-			Movie movie=restTemplate.getForObject("http://movie-info-service/movies/"+rating.getMovieId(), Movie.class);
+		UserRating userRating=userRatingInfo.getUserRating(userId);
+		return userRating.getRatings().stream()
+				.map(rating -> movieInfo.getCatalogItem(rating))
+				.collect(Collectors.toList());
 			
 			/*Movie movie =webClientBuilder.build() //WebClient
 			.get() // requestMethod (GET,POST,PUT,DELETE)
@@ -44,12 +54,12 @@ public class MovieCatalogController {
 			.retrieve() // fetch the response
 			.bodyToMono(Movie.class) // async object (it is going to give in future wt u go want )
 			.block(); // until you will get object block it 
-			*/
-			
-			return new CatalogItem(movie.getName(),"Good",rating.getRating());
-		}).collect(Collectors.toList());
-		
-		//return Collections.singletonList(new CatalogItem("RRR", "Good", 5));
+			*/							
+		//return Collections.singletonList(new CatalogItem("RRR", "Good", 5));				
 	}
 
+	/*
+	 * public List<CatalogItem> getFallbackCatalog(@PathVariable("userId") String
+	 * userId) { return Arrays.asList(new CatalogItem("No Movie","",0)); }
+	 */
 }
